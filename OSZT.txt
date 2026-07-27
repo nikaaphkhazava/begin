@@ -1,0 +1,111 @@
+# OSZT — The Plan
+
+An AI-operated computer. The AI (Hermes Agent) can do almost anything on the
+machine, but it physically cannot break it: every action goes through a single
+allowlisted door, every change is snapshotted, and a supervisor the AI cannot
+reach can revert the system.
+
+Core rule: safety comes from architecture, not from trusting the model.
+
+
+## The two hearts
+
+- Heart A: the live system. AI-controlled, all the gadgets, expected to get messy.
+- Heart B: a dormant, known-good system image. The AI has no path to it, ever.
+- The pacemaker: a small supervisor running outside the AI's reach that watches
+  Heart A's health and switches to Heart B when it fails.
+
+Two hearts only help if a third thing decides when to switch. If the AI can talk
+to the supervisor, there is no supervisor.
+
+Note: rolling the OS back does not restore deleted user files. User data needs
+its own separate backup.
+
+
+## Phases
+
+P0 — Build everything in a VM. No AI on bare metal until P5.
+P1 — The broker, with no AI at all. ~5 allowed actions (open_app, set_volume,
+     list_files, install_flatpak, set_brightness), each audit-logged. Prove
+     nothing can happen except through it.
+P2 — Two hearts + pacemaker. A/B images, snapshot before every change, health
+     check after, auto-rollback on failure. Deliberately wreck Heart A ~20
+     times and confirm recovery every time.
+P3 — Local model drives the broker. The model receives the broker's tool list
+     and nothing else. No shell access.
+P4 — Memory, then voice, then hardware/Arduino. One subsystem at a time, each
+     exposed only as broker actions.
+P5 — Bare metal, only once P2 rollback is boringly reliable.
+
+
+## Stack, and what each piece does
+
+Base OS: Fedora Silverblue / bootc (Atomic), not Workstation
+  Ships the two hearts natively: two bootable deployments, read-only /usr,
+  one-command `rpm-ostree rollback`. Workstation cannot do this.
+
+Btrfs snapshots (+ snapper)
+  Point-in-time copies of the mutable parts (home, config). Snapshot before
+  each AI batch, revert when the health check fails.
+
+systemd + sd_notify watchdog — the pacemaker
+  Root-owned, AI-inaccessible. Triggers rollback/reboot into Heart B when the
+  live system stops reporting healthy.
+
+Podman container + dedicated non-root user — the agent's box
+  No sudo, no polkit, no disk/partition/firewall/user-management verbs. This is
+  what makes "cannot kill the PC" true by construction.
+
+SELinux enforcing + polkit rules
+  Kernel- and permission-level enforcement of that box, so a bug in the broker
+  is not game over.
+
+Ollama or llama.cpp — the mind's runtime
+  Runs the model locally. A 7-14B tool-calling model needs roughly 8-24GB VRAM.
+
+Broker API (Python + FastAPI) — the only door
+  Typed, allowlisted actions with an audit log. The most important component in
+  the project.
+
+Qdrant or Chroma + SQLite — long-term memory
+  Vector store for recall, SQLite for hard facts and action history.
+  Retrieval, not retraining.
+
+Skill library (versioned, approved scripts) — the honest "self-learning"
+  The agent proposes a script, a human approves it once, it is reused forever.
+  Real improvement, fully reversible. No live fine-tuning: that produces silent,
+  undebuggable degradation.
+
+whisper.cpp (hear), Piper (speak), openWakeWord (wake word)
+  Fully local voice loop, fast enough on CPU.
+
+Xorg session or libei/ydotool — hands
+  How the agent clicks and types. Decide early: Wayland restricts synthetic
+  input and screen capture, which limits what "control the PC" can mean.
+
+Flatpak + Proton / Heroic / Bottles — apps
+  Discord, Firefox, Steam and Soundux are native Linux. Epic runs via Heroic.
+  Windows-only apps run under Wine/Proton and must be verified one by one;
+  there is no generic "talk to Windows applications" layer.
+
+asusctl + supergfxctl — the real Armoury Crate equivalent
+  Fans, keyboard RGB, GPU mode switching, power profiles. ASUS hardware only.
+
+ddcutil
+  External monitor brightness and input switching over the display cable.
+
+pyserial or MQTT — Arduino
+  Serial or message-bus link, with permitted commands whitelisted in the broker
+  like everything else.
+
+Hardware kill switch / hotkey
+  A way to stop the agent that does not route through software the agent
+  controls.
+
+
+## Open decisions
+
+- Pin one Fedora version for development instead of tracking a moving target.
+- GPU / VRAM budget, which determines the model choice.
+- Wayland vs Xorg for automation.
+- Naming: "Hermes" collides with the NousResearch Hermes model family.
