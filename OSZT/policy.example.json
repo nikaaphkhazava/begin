@@ -1,0 +1,20 @@
+{
+  "allowed_capabilities": [
+    "open_app",
+    "close_app",
+    "list_files",
+    "read_text",
+    "set_volume",
+    "set_brightness"
+  ],
+  "allowed_apps": {
+    "firefox": ["flatpak", "run", "org.mozilla.firefox"],
+    "discord": ["flatpak", "run", "com.discordapp.Discord"],
+    "steam": ["flatpak", "run", "com.valvesoftware.Steam"],
+    "heroic": ["flatpak", "run", "com.heroicgameslauncher.hgl"],
+    "soundux": ["soundux"]
+  },
+  "file_roots": ["~/oszt-workspace"],
+  "max_calls_per_minute": 60,
+  "dry_run": true
+}
