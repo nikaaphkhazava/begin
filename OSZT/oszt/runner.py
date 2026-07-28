@@ -10,7 +10,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 from dataclasses import dataclass, field
-from typing import Callable, Sequence
+from typing import Protocol, Sequence
 
 from oszt.errors import CapabilityFailed
 
@@ -30,21 +30,34 @@ class CommandResult:
         return self
 
 
-Runner = Callable[[Sequence[str]], CommandResult]
+class Runner(Protocol):
+    """Executes an argv, and can say whether a tool exists at all."""
+
+    def __call__(self, argv: Sequence[str]) -> CommandResult: ...
+
+    def which(self, binary: str) -> str | None: ...
 
 
-def subprocess_runner(argv: Sequence[str]) -> CommandResult:
-    """Run ``argv`` for real, without a shell."""
-    argv = tuple(str(part) for part in argv)
-    if shutil.which(argv[0]) is None:
-        raise CapabilityFailed(f"executable {argv[0]!r} is not installed")
-    completed = subprocess.run(argv, capture_output=True, text=True, check=False)
-    return CommandResult(
-        argv=argv,
-        returncode=completed.returncode,
-        stdout=completed.stdout,
-        stderr=completed.stderr,
-    )
+class SubprocessRunner:
+    """Runs commands for real, without a shell."""
+
+    def __call__(self, argv: Sequence[str]) -> CommandResult:
+        command = tuple(str(part) for part in argv)
+        if self.which(command[0]) is None:
+            raise CapabilityFailed(f"executable {command[0]!r} is not installed")
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        return CommandResult(
+            argv=command,
+            returncode=completed.returncode,
+            stdout=completed.stdout,
+            stderr=completed.stderr,
+        )
+
+    def which(self, binary: str) -> str | None:
+        return shutil.which(binary)
+
+
+subprocess_runner = SubprocessRunner()
 
 
 @dataclass
@@ -58,6 +71,14 @@ class RecordingRunner:
     returncode: int = 0
     stdout: str = ""
     stderr: str = ""
+    # None means "pretend every tool is installed"; a set narrows it, so tests
+    # can reproduce a machine that is missing grim or duperemove.
+    installed: set[str] | None = None
+
+    def which(self, binary: str) -> str | None:
+        if self.installed is None or binary in self.installed:
+            return f"/usr/bin/{binary}"
+        return None
 
     def __call__(self, argv: Sequence[str]) -> CommandResult:
         recorded = tuple(str(part) for part in argv)

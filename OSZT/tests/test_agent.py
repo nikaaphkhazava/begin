@@ -1,16 +1,57 @@
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 from typing import Any, Mapping
 
 import pytest
 
-from oszt.agent import HermesAgent, OllamaClient
+from oszt import build_broker
+from oszt.agent import HermesAgent, OllamaClient, VisionClient
 from oszt.agent.hermes import AgentError
 from oszt.broker import Broker
 from oszt.memory import MemoryStore
+from oszt.policy import Policy
 from oszt.runner import RecordingRunner
+
+PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8AAAwAB/AEBmwHqAAAAAElFTkSuQmCC"
+)
+
+
+def _FakeVision() -> VisionClient:
+    """A vision model that always sees the same thing."""
+    return VisionClient(
+        transport=lambda url, payload: {"response": "a terminal full of red output"}
+    )
+
+
+class FakeCapture(RecordingRunner):
+    """Stands in for grim."""
+
+    def __call__(self, argv):  # type: ignore[no-untyped-def]
+        Path(argv[-1]).write_bytes(PNG)
+        return super().__call__(argv)
+
+
+@pytest.fixture
+def seeing_broker(policy: Policy, sandbox: Path, tmp_path: Path) -> Broker:
+    """A broker whose policy lets the agent take screenshots."""
+    seeing = Policy.from_dict(
+        {
+            "allowed_capabilities": sorted(
+                {*policy.allowed_capabilities, "capture_screen", "read_screenshot_base64"}
+            ),
+            "allowed_apps": {name: list(argv) for name, argv in policy.allowed_apps.items()},
+            "file_roots": [str(sandbox)],
+            "write_roots": [str(sandbox)],
+            "protected_paths": [],
+            "trash_dir": str(tmp_path / "trash"),
+            "dry_run": False,
+        }
+    )
+    return build_broker(seeing, tmp_path / "seeing-audit.jsonl", runner=FakeCapture())
 
 
 class FakeModel:
@@ -191,3 +232,46 @@ def test_tools_are_advertised_with_json_schema_parameters(broker: Broker) -> Non
     assert parameters["type"] == "object"
     assert parameters["properties"]["max_bytes"] == {"type": "integer"}
     assert parameters["required"] == ["path"]
+
+
+def test_the_screen_tool_is_hidden_unless_the_policy_allows_capture(
+    broker: Broker,
+) -> None:
+    """The base policy has no capture_screen, so sight must not be advertised."""
+    model = FakeModel({"role": "assistant", "content": "hi"})
+    _agent(broker, model, vision=_FakeVision()).run("what is on my screen?")
+    advertised = {tool["function"]["name"] for tool in model.payloads[0]["tools"]}
+    assert "look_at_screen" not in advertised
+
+
+def test_the_screen_tool_appears_when_capture_is_allowed(
+    seeing_broker: Broker,
+) -> None:
+    model = FakeModel({"role": "assistant", "content": "hi"})
+    _agent(seeing_broker, model, vision=_FakeVision()).run("hi")
+    advertised = {tool["function"]["name"] for tool in model.payloads[0]["tools"]}
+    assert "look_at_screen" in advertised
+
+
+def test_without_a_vision_client_there_is_no_screen_tool(seeing_broker: Broker) -> None:
+    model = FakeModel({"role": "assistant", "content": "hi"})
+    _agent(seeing_broker, model).run("hi")
+    advertised = {tool["function"]["name"] for tool in model.payloads[0]["tools"]}
+    assert "look_at_screen" not in advertised
+
+
+def test_the_agent_can_look_at_the_screen_and_gets_words_back(
+    seeing_broker: Broker,
+) -> None:
+    model = FakeModel(
+        _tool_call("look_at_screen", {"question": "what is failing?"}),
+        {"role": "assistant", "content": "your test run is red"},
+    )
+    run = _agent(seeing_broker, model, vision=_FakeVision()).run("why is it broken?")
+
+    assert run.steps[0].capability == "look_at_screen"
+    assert run.steps[0].allowed is True
+    tool_messages = [
+        message for message in model.payloads[-1]["messages"] if message.get("role") == "tool"
+    ]
+    assert "a terminal" in tool_messages[0]["content"]

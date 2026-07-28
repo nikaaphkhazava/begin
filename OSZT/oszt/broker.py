@@ -27,6 +27,15 @@ class Context:
     policy: Policy
     run: Runner
 
+    @property
+    def dry_run(self) -> bool:
+        """Whether to report an action instead of performing it.
+
+        Capabilities that touch the filesystem directly must consult this: only
+        commands routed through the runner are neutralised automatically.
+        """
+        return self.policy.dry_run
+
 
 Capability = Callable[..., Any]
 

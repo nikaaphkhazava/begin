@@ -9,7 +9,17 @@ from __future__ import annotations
 
 from typing import Callable
 
-from oszt.capabilities import apps, asus, files, gpu, system
+from oszt.capabilities import (
+    apps,
+    asus,
+    files,
+    filesystem,
+    gpu,
+    janitor,
+    net,
+    screen,
+    system,
+)
 
 BUILTIN_CAPABILITIES: dict[str, Callable[..., object]] = {
     "open_app": apps.open_app,
@@ -26,6 +36,33 @@ BUILTIN_CAPABILITIES: dict[str, Callable[..., object]] = {
     "get_gpu_mode": asus.get_gpu_mode,
     "set_gpu_mode": asus.set_gpu_mode,
     "gpu_status": gpu.gpu_status,
+    "write_text": filesystem.write_text,
+    "make_dir": filesystem.make_dir,
+    "move_path": filesystem.move_path,
+    "copy_path": filesystem.copy_path,
+    "delete_path": filesystem.delete_path,
+    "restore_path": filesystem.restore_path,
+    "list_trash": filesystem.list_trash,
+    "find_files": filesystem.find_files,
+    "disk_usage": filesystem.disk_usage,
+    "list_cleaners": janitor.list_cleaners,
+    "clean_caches": janitor.clean_caches,
+    "find_duplicates": janitor.find_duplicates,
+    "deduplicate": janitor.deduplicate,
+    "download_file": net.download_file,
+    "capture_screen": screen.capture_screen,
+    "read_screenshot_base64": screen.read_screenshot_base64,
 }
 
-__all__ = ["BUILTIN_CAPABILITIES", "apps", "asus", "files", "gpu", "system"]
+__all__ = [
+    "BUILTIN_CAPABILITIES",
+    "apps",
+    "asus",
+    "files",
+    "filesystem",
+    "gpu",
+    "janitor",
+    "net",
+    "screen",
+    "system",
+]

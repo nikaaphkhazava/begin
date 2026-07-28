@@ -29,6 +29,8 @@ fi
 python3 -m pip install --prefix /usr "${repo_root}"
 
 install -m 0644 "${repo_root}"/packaging/systemd/*.service /etc/systemd/system/
+install -m 0644 "${repo_root}"/packaging/systemd/*.timer /etc/systemd/system/
+install -m 0644 "${repo_root}/packaging/oszt-toolbar.desktop" /usr/share/applications/
 systemctl daemon-reload
 
 cat <<'EOF'
@@ -37,7 +39,12 @@ installed. next steps:
 
   oszt doctor                                   # what is still missing
   systemctl enable --now oszt-supervisor        # the smoke alarm
+  systemctl enable --now oszt-janitor.timer     # the weekly cleanup
   sudo -u oszt-agent oszt --policy /etc/oszt/policy.json tools
+
+for the clickable version, run this as your normal user (not root):
+
+  packaging/install-user.sh                     # adds OSZT to your app menu
 
 the agent runs on demand, per goal:
 

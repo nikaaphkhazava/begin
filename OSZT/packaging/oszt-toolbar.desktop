@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=OSZT
+Comment=Floating controls for the Hermes agent
+Exec=oszt-toolbar
+Icon=applications-system
+Terminal=false
+Categories=Utility;System;
+Keywords=ai;assistant;hermes;oszt;
+StartupNotify=false

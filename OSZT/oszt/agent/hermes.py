@@ -10,14 +10,41 @@ step-bounded, so a confused model burns steps rather than the machine.
 from __future__ import annotations
 
 import json
-import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
+from oszt.agent.transport import AgentError, Transport, http_transport
+from oszt.agent.vision import VisionClient, look_at_screen
 from oszt.broker import Broker
 from oszt.errors import OSZTError
 from oszt.memory import MemoryStore
+
+__all__ = [
+    "AgentError",
+    "AgentRun",
+    "AgentStep",
+    "HermesAgent",
+    "OllamaClient",
+    "http_transport",
+]
+
+LOOK_TOOL: dict[str, Any] = {
+    "name": "look_at_screen",
+    "description": (
+        "Look at the current screen and get a written description of it. Use it "
+        "when you need to know what the user is doing or see an error message."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "question": {
+                "type": "string",
+                "description": "what to look for on the screen",
+            }
+        },
+        "required": [],
+    },
+}
 
 SYSTEM_PROMPT = """You are Hermes, the operator of this computer.
 You cannot run shell commands and you have no filesystem access.
@@ -26,27 +53,6 @@ If a tool call is refused, the refusal is final: do not retry it and do not look
 for a way around it. Explain the limit to the user instead.
 When the goal is met, reply with a short plain-language summary and no tool call.
 """
-
-Transport = Callable[[str, Mapping[str, Any]], dict[str, Any]]
-
-
-class AgentError(Exception):
-    """The model or its transport failed."""
-
-
-def http_transport(url: str, payload: Mapping[str, Any]) -> dict[str, Any]:
-    """POST JSON to ``url`` with the standard library only."""
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=300) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.URLError as error:
-        raise AgentError(f"cannot reach the model at {url}: {error}") from error
 
 
 @dataclass
@@ -97,9 +103,12 @@ class HermesAgent:
     client: OllamaClient
     memory: MemoryStore | None = None
     max_steps: int = 8
+    # Sight is optional and composite: capture plus describe, both audited. It is
+    # offered only when a vision client exists and the policy allows capture.
+    vision: VisionClient | None = None
 
     def run(self, goal: str) -> AgentRun:
-        tools = self.broker.tool_list()
+        tools = self._tools()
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "system", "content": self._memory_briefing()},
@@ -133,6 +142,14 @@ class HermesAgent:
             exhausted=True,
         )
 
+    def _tools(self) -> list[dict[str, Any]]:
+        tools = self.broker.tool_list()
+        if self.vision is not None and any(
+            tool["name"] == "capture_screen" for tool in tools
+        ):
+            tools.append(LOOK_TOOL)
+        return tools
+
     def _execute(self, call: Mapping[str, Any]) -> AgentStep:
         function = call.get("function") or {}
         name = str(function.get("name", ""))
@@ -146,7 +163,10 @@ class HermesAgent:
             arguments = {}
 
         try:
-            result = self.broker.call(name, **arguments)
+            if name == "look_at_screen" and self.vision is not None:
+                result: Any = look_at_screen(self.broker, self.vision, **arguments)
+            else:
+                result = self.broker.call(name, **arguments)
         except OSZTError as error:
             step = AgentStep(name, arguments, allowed=False, detail=str(error))
         else:

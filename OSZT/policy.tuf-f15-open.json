@@ -1,12 +1,13 @@
 {
   "_comment": [
-    "Policy for an ASUS TUF Gaming F15 with an RTX 3050.",
-    "This is the cautious policy: the agent can read your whole home directory",
-    "but may only change things inside ~/oszt-workspace. Once you trust it, widen",
-    "write_roots to ~ and the protected_paths list is what keeps you safe.",
-    "set_gpu_mode is deliberately absent: switching graphics mode ends the",
-    "desktop session, so it stays a human action.",
-    "Set dry_run to false only once you have watched a full session in dry run."
+    "The 99.9% policy: the agent may change ANYTHING in your home directory.",
+    "The 0.1% it can never touch is protected_paths - the operating system, its",
+    "own code, configuration and ledger, and your keys and keyrings.",
+    "Deletion here still means 'moved to ~/.local/share/oszt-trash with an undo",
+    "entry', and the trash itself is protected, so the agent cannot empty it.",
+    "Only switch to this policy after running the cautious policy with dry_run",
+    "false for a while and reading the ledger. Back your files up first: an OS",
+    "rollback restores the system, never your documents."
   ],
   "allowed_capabilities": [
     "open_app",
@@ -25,6 +26,7 @@
     "list_cleaners",
     "clean_caches",
     "find_duplicates",
+    "deduplicate",
     "download_file",
     "capture_screen",
     "read_screenshot_base64",
@@ -50,7 +52,7 @@
     "terminal-readonly": ["gnome-system-monitor"]
   },
   "file_roots": ["~"],
-  "write_roots": ["~/oszt-workspace"],
+  "write_roots": ["~"],
   "protected_paths": [
     "/usr",
     "/etc",
@@ -72,12 +74,15 @@
     "~/.pki",
     "~/.local/share/keyrings",
     "~/.config/oszt",
-    "~/.local/share/oszt"
+    "~/.local/share/oszt",
+    "~/.mozilla",
+    "~/.var/app",
+    "~/.local/share/Steam"
   ],
   "trash_dir": "~/.local/share/oszt-trash",
-  "allowed_cleaners": ["flatpak-unused", "journal", "dnf-cache", "thumbnails"],
+  "allowed_cleaners": ["flatpak-unused", "journal", "dnf-cache", "thumbnails", "coredumps"],
   "allowed_hosts": ["flathub.org", "download.mozilla.org", "github.com", "objects.githubusercontent.com"],
   "max_download_bytes": 536870912,
-  "max_calls_per_minute": 60,
+  "max_calls_per_minute": 120,
   "dry_run": true
 }

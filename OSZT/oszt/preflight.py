@@ -47,6 +47,19 @@ REQUIREMENTS: tuple[Requirement, ...] = (
         "curl -fsSL https://ollama.com/install.sh | sh",
         "the local model behind the Hermes agent",
     ),
+    Requirement("curl", "sudo dnf install curl", "download_file"),
+    Requirement(
+        "grim",
+        "sudo dnf install grim  # Wayland; use scrot on an Xorg session",
+        "capture_screen",
+        optional=True,
+    ),
+    Requirement(
+        "duperemove",
+        "sudo dnf install duperemove",
+        "deduplicate: reclaim duplicate space without deleting",
+        optional=True,
+    ),
     Requirement(
         "rpm-ostree",
         "only present on Fedora Atomic (Silverblue/Kinoite/bootc)",

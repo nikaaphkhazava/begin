@@ -1,0 +1,27 @@
+[Unit]
+# The weekly cleanup. Root, because the journal and the dnf cache need it, and
+# because purging old trash must not be something the agent can trigger.
+Description=OSZT janitor: cache cleanup and trash expiry
+Documentation=https://github.com/nikaaphkhazava/begin/tree/main/OSZT
+ConditionPathExists=/etc/oszt/policy.json
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/oszt-janitor --policy /etc/oszt/policy.json --purge-after-days 30
+# A cleanup job has no business being fast or interactive.
+Nice=15
+IOSchedulingClass=idle
+# It writes only to the log and the trash it is expiring.
+ProtectSystem=strict
+ProtectHome=no
+ReadWritePaths=/var/log/oszt /var/lib/oszt
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectClock=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native

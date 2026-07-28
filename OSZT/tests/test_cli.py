@@ -118,3 +118,92 @@ def test_agent_reports_a_missing_model_instead_of_a_traceback(
     )
     assert main(argv) == 1
     assert "model unavailable" in capsys.readouterr().err
+
+
+def _janitor_policy(tmp_path: Path, sandbox: Path, *, dry_run: bool, name: str) -> Path:
+    path = tmp_path / name
+    path.write_text(
+        json.dumps(
+            {
+                "allowed_capabilities": [
+                    "list_cleaners",
+                    "clean_caches",
+                    "delete_path",
+                    "list_trash",
+                    "restore_path",
+                ],
+                "file_roots": [str(sandbox)],
+                "write_roots": [str(sandbox)],
+                "protected_paths": [],
+                "trash_dir": str(tmp_path / "trash"),
+                "allowed_cleaners": ["flatpak-unused", "thumbnails"],
+                "dry_run": dry_run,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+@pytest.fixture
+def clean_policy_file(tmp_path: Path, sandbox: Path) -> Path:
+    """Cleanup jobs, in dry run: the tests must not empty this machine's caches."""
+    return _janitor_policy(tmp_path, sandbox, dry_run=True, name="clean-policy.json")
+
+
+@pytest.fixture
+def janitor_policy_file(tmp_path: Path, sandbox: Path) -> Path:
+    """The same capabilities, for real, inside the sandbox."""
+    return _janitor_policy(tmp_path, sandbox, dry_run=False, name="janitor-policy.json")
+
+
+def test_clean_without_arguments_lists_the_jobs(
+    clean_policy_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(_argv(clean_policy_file, tmp_path, "clean")) == 0
+    assert [job["name"] for job in json.loads(capsys.readouterr().out)] == [
+        "flatpak-unused",
+        "thumbnails",
+    ]
+
+
+def test_clean_all_runs_every_allowed_job(
+    clean_policy_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(_argv(clean_policy_file, tmp_path, "clean", "--all")) == 0
+    reported = [json.loads(line) for line in capsys.readouterr().out.strip().splitlines()]
+    assert [entry["cleaner"] for entry in reported] == ["flatpak-unused", "thumbnails"]
+
+
+def test_clean_reports_a_job_the_policy_forbids(
+    clean_policy_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(_argv(clean_policy_file, tmp_path, "clean", "dnf-cache")) == 1
+    assert "refused" in capsys.readouterr().err
+
+
+def test_the_trash_command_shows_how_to_undo_a_deletion(
+    janitor_policy_file: Path, tmp_path: Path, sandbox: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(_argv(janitor_policy_file, tmp_path, "trash")) == 0
+    assert "trash is empty" in capsys.readouterr().out
+
+    argv = _argv(
+        janitor_policy_file, tmp_path, "call", "delete_path", f"path={sandbox / 'hello.txt'}"
+    )
+    assert main(argv) == 0
+    assert not (sandbox / "hello.txt").exists()
+
+    assert main(_argv(janitor_policy_file, tmp_path, "trash")) == 0
+    printed = capsys.readouterr().out
+    assert "hello.txt" in printed
+    assert "restore_path" in printed
+
+
+def test_see_reports_a_missing_vision_model_instead_of_a_traceback(
+    policy_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = _argv(policy_file, tmp_path, "see", "--ollama-url", "http://127.0.0.1:1")
+    assert main(argv) == 1
+    # capture_screen is not in this policy, so the refusal comes first.
+    assert "refused" in capsys.readouterr().err

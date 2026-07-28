@@ -38,6 +38,25 @@ P4 — Memory, then voice, then hardware/Arduino. One subsystem at a time, each
 P5 — Bare metal, only once P2 rollback is boringly reliable.
 
 
+## Status (see OSZT/README.md for detail)
+
+Built: the broker, ledger and policy (P1); snapshot, health-check and watchdog
+machinery (the logic of P2); the local model driving the broker (P3); memory
+(half of P4); and the broad automation layer the human asked for — file write /
+move / copy / delete-to-trash / restore, search, disk usage, named cleanup jobs,
+duplicate reporting, Btrfs dedupe, leashed downloads, screenshots plus a local
+vision model, and a floating two-button toolbar with a clickable installer.
+
+Not built: rollback proven by wrecking real hardware twenty times (the actual
+point of P2), voice, Arduino, the approved-skill library, and GUI automation —
+the agent can see the screen but cannot click or type on it.
+
+The protected 0.1%: the operating system itself, OSZT's own policy, ledger,
+memory and trash, the user's keys and keyrings, and the second heart. Snapshots
+and rollback are not capabilities at all, and purging the trash belongs to a
+root timer, so the agent cannot destroy its own undo history.
+
+
 ## Stack, and what each piece does
 
 Base OS: Fedora Silverblue / bootc (Atomic), not Workstation

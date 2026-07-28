@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the OSZT janitor weekly
+
+[Timer]
+OnCalendar=weekly
+# Catch up after the laptop has been asleep or off, which it usually has.
+Persistent=yes
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target

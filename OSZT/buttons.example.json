@@ -1,0 +1,37 @@
+{
+  "_comment": [
+    "Your toolbar. Copy to ~/.config/oszt/buttons.json and edit freely -",
+    "adding a button never needs a code change, and restarting the toolbar picks",
+    "up the new layout.",
+    "kind: agent      = turn Hermes on and off",
+    "kind: live_feed  = turn screen watching on and off",
+    "kind: goal       = send one fixed instruction to Hermes",
+    "kind: capability = call one broker capability directly",
+    "A capability button still obeys the policy: if the policy does not allow it,",
+    "the button reports the refusal and nothing happens."
+  ],
+  "buttons": [
+    { "label": "AI", "kind": "agent", "tooltip": "turn Hermes on and off" },
+    { "label": "EYE", "kind": "live_feed", "tooltip": "let Hermes watch the screen" },
+    {
+      "label": "CLN",
+      "kind": "goal",
+      "goal": "Find what is using the most disk space and clean the caches you are allowed to clean.",
+      "tooltip": "clean up junk"
+    },
+    {
+      "label": "QT",
+      "kind": "capability",
+      "capability": "set_power_profile",
+      "arguments": { "profile": "Quiet" },
+      "tooltip": "quiet fans"
+    },
+    {
+      "label": "PRF",
+      "kind": "capability",
+      "capability": "set_power_profile",
+      "arguments": { "profile": "Performance" },
+      "tooltip": "performance fans"
+    }
+  ]
+}

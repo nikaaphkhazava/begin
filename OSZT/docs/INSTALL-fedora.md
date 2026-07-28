@@ -45,7 +45,8 @@ disappears, and `AsusMuxDgpu` needs a reboot each way.
 ## 3. The rest of the tools
 
 ```bash
-sudo dnf install wireplumber brightnessctl procps-ng flatpak btrfs-progs
+sudo dnf install wireplumber brightnessctl procps-ng flatpak btrfs-progs \
+  curl duperemove python3-tkinter grim
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 flatpak install flathub org.mozilla.firefox com.discordapp.Discord \
   com.valvesoftware.Steam com.heroicgameslauncher.hgl com.usebottles.bottles
@@ -53,6 +54,11 @@ flatpak install flathub org.mozilla.firefox com.discordapp.Discord \
 
 Soundux and `rog-control-center` come from the same COPR / Flathub; the shipped
 policy expects `soundux` on `PATH`.
+
+What the newer tools are for: `curl` downloads, `duperemove` reclaims duplicate
+space without deleting anything, `python3-tkinter` draws the floating buttons,
+`grim` takes the screenshots the agent looks at. On an Xorg session install
+`scrot` instead of `grim` - OSZT picks whichever it finds.
 
 ## 4. The model
 
@@ -68,7 +74,13 @@ this whole project. Realistic options:
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
 ollama pull qwen2.5:3b
+ollama pull moondream        # the eye: ~1.7GB, only loaded when it looks
 ```
+
+Sight costs a second model. `moondream` is the smallest useful one; `llava:7b` is
+better and does not fit beside the text model on 4GB. Because both cannot stay
+resident, each look evicts the other model and takes a few seconds - which is why
+the live feed is a heartbeat every 15 seconds rather than video.
 
 Do not try a 13B or larger model on this card. It will run, at a few tokens per
 second, which makes the agent unusable rather than merely slow.
@@ -80,14 +92,43 @@ speech. Both leave enough VRAM for the model; `small` Whisper models do not.
 
 ```bash
 cd OSZT
-python3 -m pytest            # 148 tests, no hardware needed
-sudo packaging/install.sh
+python3 -m pytest             # 267 tests, no hardware needed
+./packaging/install-user.sh   # your user: the toolbar, in your app menu
+sudo packaging/install.sh     # the system: supervisor and weekly janitor
 oszt doctor
 ```
 
+`install-user.sh` writes `~/.config/oszt/policy.json` and
+`~/.config/oszt/buttons.json`, installs the package for your user, and adds OSZT
+to the application menu, so from then on you click an icon rather than typing.
+
 `install.sh` creates the unprivileged `oszt-agent` user, `/etc/oszt/policy.json`
 (copied from `policy.tuf-f15.json`, **dry run on**), the log and state
-directories, and the two systemd units.
+directories, and the systemd units.
+
+## 5b. The buttons
+
+```bash
+oszt-toolbar     # or click OSZT in the app menu
+```
+
+Two buttons, mouse-cursor sized, always on top, draggable by the grip on the
+left, right-click the grip to quit:
+
+- **AI** turns Hermes on and off. Off also stops it watching the screen.
+- **EYE** turns the live feed on: a look at the screen every 15 seconds.
+
+More buttons go in `~/.config/oszt/buttons.json` - a goal button sends one fixed
+instruction, a capability button calls one action directly. See
+`buttons.example.json`. A button cannot exceed the policy: if the policy withholds
+the capability, the button says `refused:` and nothing happens.
+
+Autostart it at login, once you trust it:
+
+```bash
+mkdir -p ~/.config/autostart
+cp /usr/share/applications/oszt-toolbar.desktop ~/.config/autostart/
+```
 
 ## 6. Watch it in dry run first
 
@@ -107,6 +148,16 @@ then set `"dry_run": false`.
 ```bash
 sudo systemctl enable --now oszt-supervisor
 systemctl status oszt-supervisor
+sudo systemctl enable --now oszt-janitor.timer   # weekly cleanup, runs as root
+systemctl list-timers oszt-janitor.timer
+```
+
+The janitor is also the only thing that empties the trash, and only entries older
+than 30 days. Deleting through the agent is undoable until then:
+
+```bash
+oszt --policy ~/.config/oszt/policy.json trash
+oszt --policy ~/.config/oszt/policy.json call restore_path trash_entry=<name>
 ```
 
 Then give the agent a goal:
@@ -130,5 +181,12 @@ consecutive bad polls. Only then is P5 (bare metal, unattended) reasonable.
   GUIs.
 - **4GB VRAM**: a model and a game cannot share the card. Expect to stop the
   agent before gaming, or accept swapping.
-- **No write capabilities yet**: the broker cannot create, move or delete files.
-  That is intentional until rollback is proven on your hardware.
+- **Writing is on, but scoped.** The default policy changes only
+  `~/oszt-workspace`. `policy.tuf-f15-open.json` widens that to all of `~`; it
+  still cannot touch the OS, OSZT's own files, or your keys. Back your documents
+  up before switching: rolling the OS back does not bring deleted files back, the
+  30-day trash does.
+- **Seeing is not touching.** The agent can describe the screen but cannot click
+  or type on it, for the Wayland reason above.
+- **Privileged cleanup is not the agent's.** `journal`, `dnf-cache` and
+  `coredumps` are skipped when not root; they belong to the weekly timer.
