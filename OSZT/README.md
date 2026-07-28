@@ -47,12 +47,14 @@ executes. Every shipped policy ships with it on:
 
 ```bash
 cd OSZT
-python -m pytest                                          # 267 tests, no hardware needed
+python -m pytest                                          # 285 tests, no hardware needed
 python -m oszt doctor                                     # what this machine is missing
 python -m oszt --policy policy.tuf-f15.json tools         # what the agent would see
 python -m oszt --policy policy.tuf-f15.json call set_power_profile profile=Quiet
 python -m oszt --policy policy.tuf-f15.json call set_gpu_mode mode=Integrated   # refused
 python -m oszt --policy policy.tuf-f15.json call disk_usage path=~   # where the space went
+python -m oszt --policy policy.tuf-f15.json apps                    # installable apps
+python -m oszt --policy policy.tuf-f15.json apps install org.videolan.VLC
 python -m oszt --policy policy.tuf-f15.json clean                   # the cleanup jobs
 python -m oszt --policy policy.tuf-f15.json trash                   # undoable deletions
 cat audit.jsonl                                           # the ledger
@@ -90,6 +92,16 @@ empty it — only the weekly root timer expires entries older than 30 days.
 size cap, and the execute bits are stripped afterwards. Nothing it downloads can
 be run by it.
 
+**Installing applications is Flatpak-only and `--user` only.** That is what keeps
+it inside the boundary: apps, runtimes and game data land in
+`~/.local/share/flatpak`, so installing software never writes to the OS and never
+needs root. Flathub is the only remote, fixed in code rather than chosen by the
+agent, and the app must be on the policy's `installable_apps` list *by exact id* —
+so "install something to play music" cannot become "install anything". `dnf` and
+`rpm-ostree` are not reachable at all: system packages stay a human action.
+`uninstall_app` is limited to that same list, because removing an app takes its
+data with it and no trash can undo that — it can only remove what it could add.
+
 **Duplicates are reported, never deleted.** On Btrfs, `deduplicate` runs
 `duperemove`, which frees the space while both copies keep existing.
 
@@ -105,6 +117,7 @@ enough for "what is on screen", not enough to watch you type.
 | `oszt/policy.py` | The allowlist: capabilities, apps, filesystem roots, rate limit. Data, not code. |
 | `oszt/broker.py` | The only door. Checks the policy, throttles, dispatches, logs, publishes the tool schema. |
 | `oszt/capabilities/` | The individual actions: apps, files, audio/display, ASUS hardware, GPU telemetry. |
+| `oszt/capabilities/apps.py` | Launch, close, and install/remove allowlisted Flatpak apps (`--user` only). |
 | `oszt/capabilities/filesystem.py` | Write, move, copy, delete-to-trash, restore, search, disk usage. |
 | `oszt/capabilities/janitor.py` | Named cleanup jobs, duplicate reporting, Btrfs dedupe. |
 | `oszt/capabilities/net.py` | Downloads: allowlisted host, size cap, never executable. |
@@ -151,6 +164,8 @@ enough for "what is on screen", not enough to watch you type.
 - **Deletion is reversible or it does not happen.** Overwriting a file trashes
   the old contents first. The trash is protected from the agent, and only the
   root timer purges it.
+- **Installing is `--user` Flatpak from a fixed remote, off an id allowlist.** The
+  one action that decides what code runs on the machine is the narrowest one.
 - **Cleanup is named jobs, not file judgement.** A 3B model is fine at "run the
   cleanup"; it is not trustworthy at "this file looks useless". Cache directories
   are emptied in Python against hard-coded paths, so there is no `rm -rf` argv

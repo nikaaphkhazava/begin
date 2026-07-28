@@ -32,6 +32,15 @@ if [[ ! -f "${config_dir}/buttons.json" ]]; then
   echo "buttons  -> ${config_dir}/buttons.json  (edit this to add your own buttons)"
 fi
 
+# Installing applications is Flatpak-only and --user only, so the agent needs a
+# Flathub remote in *its own* user installation. Adding it needs no root.
+if command -v flatpak >/dev/null; then
+  flatpak remote-add --if-not-exists --user \
+    flathub https://flathub.org/repo/flathub.flatpakrepo || true
+else
+  echo "note: install flatpak if you want OSZT to install applications" >&2
+fi
+
 python3 -m pip install --user --upgrade "${repo_root}"
 
 install -m 0644 "${repo_root}/packaging/oszt-toolbar.desktop" "${apps_dir}/oszt-toolbar.desktop"

@@ -7,6 +7,7 @@ widening what the agent may do is always a reviewable diff.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -41,6 +42,10 @@ DEFAULT_PROTECTED_PATHS: tuple[str, ...] = (
     "~/.local/share/oszt",
 )
 
+# org.mozilla.firefox, com.valvesoftware.Steam: at least two dot-separated
+# segments of letters, digits, hyphens and underscores.
+_FLATPAK_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9][A-Za-z0-9_-]*){2,}")
+
 
 @dataclass(frozen=True)
 class Policy:
@@ -61,6 +66,7 @@ class Policy:
     allowed_hosts: frozenset[str] = frozenset()
     max_download_bytes: int = 512 * 1024 * 1024
     allowed_cleaners: frozenset[str] = frozenset()
+    installable_apps: frozenset[str] = frozenset()
     max_calls_per_minute: int = 60
     dry_run: bool = True
 
@@ -93,6 +99,7 @@ class Policy:
             allowed_hosts=frozenset(data.get("allowed_hosts", [])),
             max_download_bytes=int(data.get("max_download_bytes", 512 * 1024 * 1024)),
             allowed_cleaners=frozenset(data.get("allowed_cleaners", [])),
+            installable_apps=_flatpak_ids(data.get("installable_apps", [])),
             max_calls_per_minute=int(data.get("max_calls_per_minute", 60)),
             dry_run=bool(data.get("dry_run", True)),
         )
@@ -166,6 +173,37 @@ class Policy:
     def check_cleaner(self, name: str) -> None:
         if name not in self.allowed_cleaners:
             raise PolicyViolation(f"cleaner {name!r} is not permitted by the policy")
+
+    def check_installable_app(self, app_id: str) -> str:
+        """Confirm ``app_id`` is an application the human agreed may be installed.
+
+        Installing is the one action where the agent chooses what *code* runs on
+        the machine, so the allowlist is of exact Flatpak application ids - not
+        of remotes, and not of name patterns.
+        """
+        if app_id not in self.installable_apps:
+            raise PolicyViolation(
+                f"application {app_id!r} is not on the installable allowlist"
+            )
+        return app_id
+
+
+def _flatpak_ids(raw: Any) -> frozenset[str]:
+    """Validate the installable allowlist as Flatpak application ids.
+
+    A reversed-DNS id (``org.mozilla.firefox``) cannot be mistaken for an option,
+    a path or a second argument, so a malformed policy is refused at load time
+    rather than reaching ``flatpak`` as an argv fragment.
+    """
+    ids: set[str] = set()
+    for item in raw:
+        app_id = str(item)
+        if not _FLATPAK_ID.fullmatch(app_id):
+            raise PolicyViolation(
+                f"installable_apps[{app_id!r}] is not a Flatpak application id"
+            )
+        ids.add(app_id)
+    return frozenset(ids)
 
 
 def _paths(raw: Any) -> tuple[Path, ...]:

@@ -32,6 +32,13 @@
       "capability": "set_power_profile",
       "arguments": { "profile": "Performance" },
       "tooltip": "performance fans"
+    },
+    {
+      "label": "VLC",
+      "kind": "capability",
+      "capability": "install_app",
+      "arguments": { "app_id": "org.videolan.VLC" },
+      "tooltip": "install VLC from Flathub, for this user only"
     }
   ]
 }

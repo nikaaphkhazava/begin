@@ -207,3 +207,74 @@ def test_see_reports_a_missing_vision_model_instead_of_a_traceback(
     assert main(argv) == 1
     # capture_screen is not in this policy, so the refusal comes first.
     assert "refused" in capsys.readouterr().err
+
+
+@pytest.fixture
+def apps_policy_file(tmp_path: Path, sandbox: Path) -> Path:
+    """Installing turned on, in dry run: the tests install nothing for real."""
+    path = tmp_path / "apps-policy.json"
+    path.write_text(
+        json.dumps(
+            {
+                "allowed_capabilities": [
+                    "list_installable_apps",
+                    "install_app",
+                    "uninstall_app",
+                ],
+                "file_roots": [str(sandbox)],
+                "trash_dir": str(tmp_path / "trash"),
+                "installable_apps": ["org.videolan.VLC", "org.mozilla.firefox"],
+                "dry_run": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_apps_lists_what_may_be_installed(
+    apps_policy_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(_argv(apps_policy_file, tmp_path, "apps")) == 0
+    assert [entry["app_id"] for entry in json.loads(capsys.readouterr().out)] == [
+        "org.mozilla.firefox",
+        "org.videolan.VLC",
+    ]
+
+
+def test_apps_install_reports_the_exact_command(
+    apps_policy_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = _argv(apps_policy_file, tmp_path, "apps", "install", "org.videolan.VLC")
+    assert main(argv) == 0
+    assert json.loads(capsys.readouterr().out)["argv"] == [
+        "flatpak",
+        "install",
+        "--user",
+        "--assumeyes",
+        "--noninteractive",
+        "flathub",
+        "org.videolan.VLC",
+    ]
+
+
+def test_apps_install_refuses_an_id_off_the_allowlist(
+    apps_policy_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = _argv(apps_policy_file, tmp_path, "apps", "install", "org.some.Miner")
+    assert main(argv) == 1
+    assert "not on the installable allowlist" in capsys.readouterr().err
+
+
+def test_apps_install_without_an_id_is_an_error(
+    apps_policy_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(_argv(apps_policy_file, tmp_path, "apps", "install")) == 1
+    assert "needs an application id" in capsys.readouterr().err
+
+
+def test_apps_is_refused_when_the_policy_withholds_installing(
+    policy_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(_argv(policy_file, tmp_path, "apps")) == 1
+    assert "refused" in capsys.readouterr().err

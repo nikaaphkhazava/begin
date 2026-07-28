@@ -24,6 +24,9 @@ from oszt.capabilities import (
 BUILTIN_CAPABILITIES: dict[str, Callable[..., object]] = {
     "open_app": apps.open_app,
     "close_app": apps.close_app,
+    "list_installable_apps": apps.list_installable_apps,
+    "install_app": apps.install_app,
+    "uninstall_app": apps.uninstall_app,
     "list_files": files.list_files,
     "read_text": files.read_text,
     "set_volume": system.set_volume,

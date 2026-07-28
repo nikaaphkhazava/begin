@@ -24,7 +24,12 @@ REQUIREMENTS: tuple[Requirement, ...] = (
     Requirement("wpctl", "sudo dnf install wireplumber", "set_volume"),
     Requirement("brightnessctl", "sudo dnf install brightnessctl", "set_brightness"),
     Requirement("pkill", "sudo dnf install procps-ng", "close_app"),
-    Requirement("flatpak", "sudo dnf install flatpak", "open_app for flatpak apps"),
+    Requirement(
+        "flatpak",
+        "sudo dnf install flatpak && flatpak remote-add --if-not-exists --user flathub "
+        "https://flathub.org/repo/flathub.flatpakrepo",
+        "open_app and install_app for flatpak apps",
+    ),
     Requirement(
         "asusctl",
         "sudo dnf copr enable lukenukem/asus-linux && sudo dnf install asusctl "

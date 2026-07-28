@@ -92,7 +92,7 @@ speech. Both leave enough VRAM for the model; `small` Whisper models do not.
 
 ```bash
 cd OSZT
-python3 -m pytest             # 267 tests, no hardware needed
+python3 -m pytest             # 285 tests, no hardware needed
 ./packaging/install-user.sh   # your user: the toolbar, in your app menu
 sudo packaging/install.sh     # the system: supervisor and weekly janitor
 oszt doctor
@@ -129,6 +129,35 @@ Autostart it at login, once you trust it:
 mkdir -p ~/.config/autostart
 cp /usr/share/applications/oszt-toolbar.desktop ~/.config/autostart/
 ```
+
+## 5c. Letting it install apps and games
+
+`install-user.sh` adds the Flathub remote to your *user* Flatpak installation,
+which is where every install the agent makes goes:
+
+```bash
+oszt --policy ~/.config/oszt/policy.json apps                          # what it may install
+oszt --policy ~/.config/oszt/policy.json apps install org.videolan.VLC
+oszt --policy ~/.config/oszt/policy.json apps remove org.videolan.VLC
+```
+
+Why this does not endanger the OS: `flatpak install --user` puts the application,
+its runtime and its data in `~/.local/share/flatpak`, and Steam games and Heroic
+libraries live in your home too. So the agent can furnish the machine without ever
+writing to `/usr`. System RPMs - drivers, kernel modules, `asusctl` - are the
+exception and stay yours: on Silverblue they need `rpm-ostree` and a reboot, which
+is exactly the protection we want.
+
+To let it install something new, add the exact Flathub id to `installable_apps` in
+`~/.config/oszt/policy.json`. Find ids at flathub.org, or:
+
+```bash
+flatpak search obs
+```
+
+Disk space is still one disk: home and the OS usually share the partition, so a
+100GB game fills the same drive the system lives on. `oszt ... call disk_usage
+path=~` is how you see where it went.
 
 ## 6. Watch it in dry run first
 
@@ -188,5 +217,8 @@ consecutive bad polls. Only then is P5 (bare metal, unattended) reasonable.
   30-day trash does.
 - **Seeing is not touching.** The agent can describe the screen but cannot click
   or type on it, for the Wayland reason above.
+- **It can install apps, not system packages.** Flatpak `--user` from Flathub,
+  off an id allowlist. `dnf` and `rpm-ostree` are unreachable, so drivers and
+  kernel modules remain your job.
 - **Privileged cleanup is not the agent's.** `journal`, `dnf-cache` and
   `coredumps` are skipped when not root; they belong to the weekly timer.

@@ -77,6 +77,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("trash", help="list deletions that can still be undone")
 
+    apps = subparsers.add_parser("apps", help="list, install or remove applications")
+    apps.add_argument("action", nargs="?", choices=["list", "install", "remove"], default="list")
+    apps.add_argument("app_id", nargs="?", default=None)
+
     clean = subparsers.add_parser("clean", help="run cache cleanup jobs")
     clean.add_argument("cleaner", nargs="?", default=None)
     clean.add_argument("--all", action="store_true", help="run every allowed cleaner")
@@ -130,6 +134,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "clean":
         return _clean_command(args, broker)
+
+    if args.command == "apps":
+        return _apps_command(args, broker)
 
     arguments = dict(_parse_argument(pair) for pair in args.arguments)
     try:
@@ -211,6 +218,28 @@ def _clean_command(args: argparse.Namespace, broker: Broker) -> int:
             print(f"refused: {name}: {error}", file=sys.stderr)
             failed = True
     return 1 if failed else 0
+
+
+def _apps_command(args: argparse.Namespace, broker: Broker) -> int:
+    """List the installable applications, or install/remove one of them."""
+    if args.action == "list":
+        try:
+            print(json.dumps(broker.call("list_installable_apps"), indent=2))
+        except OSZTError as error:
+            print(f"refused: {error}", file=sys.stderr)
+            return 1
+        return 0
+
+    if args.app_id is None:
+        print(f"apps {args.action} needs an application id", file=sys.stderr)
+        return 1
+    capability = "install_app" if args.action == "install" else "uninstall_app"
+    try:
+        print(json.dumps(broker.call(capability, app_id=args.app_id), default=str, indent=2))
+    except OSZTError as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 1
+    return 0
 
 
 def _memory_command(args: argparse.Namespace) -> int:
