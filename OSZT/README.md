@@ -1,8 +1,13 @@
 # OSZT
 
 An AI-operated computer where the AI cannot break the machine — not because it
-is trusted, but because it is architecturally unable to. Plan:
-[`../OSZT.txt`](../OSZT.txt). Hardware-specific setup for the target laptop
+is trusted, but because it is architecturally unable to.
+
+**New here? Read [`START-HERE.txt`](START-HERE.txt)** — every step of the install
+in plain language, what you will see at each one, and what to do when something
+goes wrong. This README is the how-it-works.
+
+Plan: [`../OSZT.txt`](../OSZT.txt). Hardware-specific setup for the target laptop
 (ASUS TUF Gaming F15, RTX 3050):
 [`docs/INSTALL-fedora.md`](docs/INSTALL-fedora.md).
 
@@ -68,7 +73,7 @@ executes. Every shipped policy ships with it on:
 
 ```bash
 cd OSZT
-python -m pytest                                          # 293 tests, no hardware needed
+python -m pytest                                          # 299 tests, no hardware needed
 python -m oszt doctor                                     # missing tools AND models
 python -m oszt --policy policy.tuf-f15.json tools         # what the agent would see
 python -m oszt --policy policy.tuf-f15.json call set_power_profile profile=Quiet

@@ -129,4 +129,6 @@ do and change nothing. read ${config_dir}/audit.jsonl, then set
 "dry_run": false in ${config_dir}/policy.json when you are ready.
 
 run 'oszt doctor' any time to see what is still missing, tools and models both.
+
+every step of this, in plain language, is in ${repo_root}/START-HERE.txt
 EOF

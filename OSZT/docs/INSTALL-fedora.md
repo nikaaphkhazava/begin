@@ -96,7 +96,7 @@ speech. Both leave enough VRAM for the model; `small` Whisper models do not.
 
 ```bash
 cd OSZT
-python3 -m pytest             # 293 tests, no hardware needed
+python3 -m pytest             # 299 tests, no hardware needed
 ./packaging/install-user.sh   # your user: the toolbar, in your app menu
 sudo packaging/install.sh     # the system: supervisor and weekly janitor
 oszt doctor

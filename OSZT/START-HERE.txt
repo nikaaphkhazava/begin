@@ -1,0 +1,317 @@
+====================================================================
+ OSZT - START HERE
+ Read this once, top to bottom. It is the whole install, in order.
+====================================================================
+
+WHAT THIS IS
+------------
+An AI (called Hermes) that can run your laptop for you: open and close
+apps, install apps, move, sort, download and delete files, clean out
+caches, look at your screen and tell you what is on it, set the fans,
+brightness, volume and keyboard lights.
+
+It runs entirely on your own machine. Nothing is sent to a cloud.
+
+The one thing it CANNOT do is break your operating system, touch your
+SSH/GPG keys, or touch its own rules. That is not a promise, it is how
+the code is built: the AI never gets a terminal. It can only call a
+fixed list of actions you approved, and every call is written down.
+
+
+BEFORE YOU START
+----------------
+* Back up anything you care about. Not because this is dangerous, but
+  because the rule of the house is: rolling the operating system back
+  does NOT bring deleted documents back.
+* Do NOT run the installer with sudo. Run it as yourself. Only two
+  commands in this whole file need sudo, and they are marked.
+* You need Fedora (Silverblue/Atomic is best, Workstation is fine).
+
+
+--------------------------------------------------------------------
+STEP 1 - GET THE CODE
+--------------------------------------------------------------------
+
+    git clone https://github.com/nikaaphkhazava/begin.git
+    cd begin/OSZT
+
+You will see git counting objects, then you have a folder. Nothing has
+run yet, nothing has changed on your machine.
+
+
+--------------------------------------------------------------------
+STEP 2 - THE ONE THING THAT NEEDS SUDO
+--------------------------------------------------------------------
+
+    sudo dnf install python3-tkinter flatpak
+
+It asks for your password, lists the packages, you type y.
+
+  python3-tkinter  draws the floating buttons
+  flatpak          how apps and games get installed
+
+If you skip tkinter, Step 4 stops and prints this exact line again.
+
+
+--------------------------------------------------------------------
+STEP 3 - CHECK THE CODE IS SANE (optional, takes one second)
+--------------------------------------------------------------------
+
+    python3 -m pytest
+
+Expected: "299 passed".
+
+These are logic tests. They do not touch your system, your files or
+your hardware.
+
+
+--------------------------------------------------------------------
+STEP 4 - INSTALL IT (as yourself, NO sudo)
+--------------------------------------------------------------------
+
+    ./packaging/install-user.sh
+
+What you will see, in this order:
+
+  policy   -> /home/you/.config/oszt/policy.json  (dry_run is ON)
+  buttons  -> /home/you/.config/oszt/buttons.json
+  ...pip installing oszt...
+
+then it asks about the AI's brain:
+
+  OSZT needs Ollama to run the AI locally (nothing is sent to a cloud).
+  install Ollama now from https://ollama.com/install.sh? [y/N]
+
+  -> y   installs Ollama (the thing that runs the model)
+  -> n   skips it; 'oszt doctor' will keep reminding you
+
+If you already have Ollama it does not ask at all. It just says
+"already installed, leaving it alone".
+
+Then two more questions, one per model:
+
+  pull qwen2.5:3b (the mind, ~2GB)? [y/N]
+  pull moondream (the eye that reads the screen, ~1.7GB)? [y/N]
+
+Say y to both. These are big downloads, so the first run takes a
+while. Anything you already have is skipped automatically.
+
+Don't want to be asked at all:
+
+    ./packaging/install-user.sh --no-ollama     # never mention it
+    ./packaging/install-user.sh --with-ollama   # yes to everything
+
+It finishes by printing where things went and what the buttons do.
+
+
+--------------------------------------------------------------------
+STEP 5 - SEE WHAT IS STILL MISSING
+--------------------------------------------------------------------
+
+    oszt doctor
+
+(If "oszt: command not found", use ~/.local/bin/oszt instead, and add
+~/.local/bin to your PATH.)
+
+You get a list like:
+
+  ok       flatpak        open_app and install_app for flatpak apps
+  MISSING  asusctl        fan profile, keyboard light, charge limit
+           -> sudo dnf copr enable lukenukem/asus-linux && sudo dnf ...
+  missing? ddcutil        external monitor brightness
+
+  models
+  ok       qwen2.5:3b     the mind (~2GB)
+  MISSING  moondream      the eye (~1.7GB)
+           -> ollama pull moondream
+
+How to read it:
+
+  ok        working
+  MISSING   needed - copy the "->" command and run it
+  missing?  optional - only that one feature is unavailable
+
+On a fresh Fedora expect several MISSING (asusctl, supergfxctl,
+nvidia-smi). Run the commands it prints. Those are system packages, so
+they need sudo and they stay YOUR job - the AI is never allowed to
+install system packages or drivers. Run "oszt doctor" again afterwards.
+
+
+--------------------------------------------------------------------
+STEP 6 - RUN IT BY CLICKING IT
+--------------------------------------------------------------------
+
+Press the Super (Windows) key, type OSZT, press Enter.
+
+A small always-on-top strip of buttons appears:
+
+  AI    turn Hermes on and off. Off means off - it also stops watching.
+  EYE   look at the screen every 15 seconds and describe what it sees.
+
+  * drag the strip by the grip on the left
+  * right-click the grip to quit
+
+Green button = on.
+
+To add your own buttons, edit  ~/.config/oszt/buttons.json  - it is
+plain text, no code. See buttons.example.json for working examples
+(cleanup, quiet fans, performance mode, install VLC). A button can
+never do more than your policy allows; a forbidden one just prints
+"refused:" and nothing happens.
+
+
+--------------------------------------------------------------------
+STEP 7 - IMPORTANT: IT IS IN DRY RUN
+--------------------------------------------------------------------
+
+Right now every action is RECORDED, NOT EXECUTED. Click things, ask it
+for things, and it will tell you exactly what it WOULD have done.
+
+Read what it would have done:
+
+    cat ~/.config/oszt/audit.jsonl
+
+That file is the ledger. Every action and every refusal is a line in
+it. Refusals are the interesting ones.
+
+When you are happy with what you see, open
+
+    ~/.config/oszt/policy.json
+
+and change
+
+    "dry_run": true      ->      "dry_run": false
+
+That single word is the seatbelt. Do not remove it on day one, and
+back your files up before you do.
+
+
+--------------------------------------------------------------------
+STEP 8 - OPTIONAL, THE SECOND SUDO: THE SAFETY NET
+--------------------------------------------------------------------
+
+    sudo packaging/install.sh
+
+This installs the parts that must live outside the AI's reach:
+
+  * the supervisor - the smoke alarm bolted to the outside wall. It
+    health-checks the machine and rolls the operating system back to
+    the previous known-good version if the machine stops being usable.
+    The AI cannot see it, mute it or unplug it.
+  * the weekly cleanup timer.
+  * the 30-day trash expiry (the AI can put things in the trash, but
+    only this can empty it).
+
+Only worth doing on Fedora Silverblue/Atomic, where the rollback is
+real. On plain Workstation everything else works, but there is no
+automatic rollback.
+
+
+--------------------------------------------------------------------
+USING IT FROM A TERMINAL (if you prefer typing)
+--------------------------------------------------------------------
+
+    oszt doctor                                  what is missing
+    oszt --policy ~/.config/oszt/policy.json tools     what it can do
+    oszt --policy ~/.config/oszt/policy.json agent "put the laptop in quiet mode"
+    oszt --policy ~/.config/oszt/policy.json see       describe my screen
+    oszt --policy ~/.config/oszt/policy.json apps      installable apps
+    oszt --policy ~/.config/oszt/policy.json apps install org.videolan.VLC
+    oszt --policy ~/.config/oszt/policy.json clean     cache cleanup jobs
+    oszt --policy ~/.config/oszt/policy.json trash     deletions you can undo
+    oszt --policy ~/.config/oszt/policy.json call disk_usage path=~
+
+
+--------------------------------------------------------------------
+WHAT IT CAN AND CANNOT DO, PLAINLY
+--------------------------------------------------------------------
+
+CAN:
+  open and close your allowlisted apps
+  install and remove allowlisted apps (Flatpak, into your home folder)
+  create, write, move, copy, rename, delete files - and undo deletions
+  search your files, tell you what is eating your disk
+  clear caches (Flatpak runtimes, journal, dnf, thumbnails)
+  find duplicates and reclaim their space WITHOUT deleting either copy
+  download from allowlisted sites
+  screenshot the screen and describe it
+  volume, brightness, fan profile, keyboard light, charge limit
+  read GPU temperature and VRAM
+  remember facts between sessions
+
+CANNOT, ever:
+  touch /usr /etc /boot /var /ostree
+  touch its own policy, ledger, memory or trash
+  read or delete your SSH/GPG keys or keyrings
+  empty its own trash (only the weekly root timer does, after 30 days)
+  get a shell, or run any command you did not pre-approve
+  run anything it downloaded
+  delete duplicates
+  install system packages or drivers, or use dnf / rpm-ostree / sudo
+  switch GPU mode (it kills your session - that stays your job)
+  take or destroy snapshots
+  click or type on your screen (it can see, not touch - Wayland blocks
+  synthetic input, and that decision is still open)
+  talk or listen (voice is not built yet)
+  talk to an Arduino (not built yet)
+
+
+--------------------------------------------------------------------
+HONEST LIMITS - READ THIS
+--------------------------------------------------------------------
+
+1. The "live feed" is a look every 15 seconds, not video. A 4GB RTX
+   3050 cannot hold the thinking model and the seeing model at the
+   same time, so each look swaps them and takes a few seconds.
+
+2. Rollback has never been tested on YOUR hardware, only in logic.
+   Until it has been, treat the safety net as unproven.
+
+3. Rolling the OS back does not restore deleted personal files. The
+   30-day trash does. Your own backup does. Nothing else.
+
+4. A 3B model is good at "run the cleanup job" and NOT good at "look
+   at 200,000 files and decide which are junk". That is why cleanup is
+   a list of named jobs and not free-form judgement.
+
+5. Disk space: budget ~40GB. Roughly: models 4GB, NVIDIA driver 3GB,
+   a second Silverblue deployment 10-15GB, snapshots ~10GB, apps 5GB,
+   plus your games.
+
+
+--------------------------------------------------------------------
+IF SOMETHING GOES WRONG
+--------------------------------------------------------------------
+
+"command not found: oszt"
+    use ~/.local/bin/oszt, and add ~/.local/bin to your PATH.
+
+"the toolbar needs tkinter"
+    sudo dnf install python3-tkinter
+
+"failed: connection refused" when you press AI
+    Ollama is not running. Start it, or install it:
+    curl -fsSL https://ollama.com/install.sh | sh
+
+"refused: ..." in the output
+    That is not a bug. Your policy does not allow that action. Either
+    leave it that way, or add the capability to
+    ~/.config/oszt/policy.json yourself.
+
+"executable 'x' is not installed"
+    run oszt doctor and install what it names.
+
+The AI deleted something I wanted
+    oszt --policy ~/.config/oszt/policy.json trash
+    it prints the entry name, then:
+    oszt --policy ~/.config/oszt/policy.json call restore_path trash_entry=<name>
+    You have 30 days.
+
+I want it to stop, now
+    Right-click the grip on the toolbar and quit - the AI button off means
+    off, it stops the watching too. If you installed the system half:
+    sudo systemctl stop 'oszt-agent@*'
+
+
+More detail: README.md (how it works) and docs/INSTALL-fedora.md
+(the ASUS TUF F15 + RTX 3050 specifics, model choices, drivers).
