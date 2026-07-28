@@ -31,6 +31,8 @@ def _argv(policy_file: Path, tmp_path: Path, *rest: str) -> list[str]:
         str(policy_file),
         "--audit",
         str(tmp_path / "audit.jsonl"),
+        "--memory",
+        str(tmp_path / "memory.sqlite3"),
         *rest,
     ]
 
@@ -67,3 +69,52 @@ def test_json_argument_values_are_parsed(
 ) -> None:
     main(_argv(policy_file, tmp_path, "call", "open_app", 'app="firefox"'))
     assert json.loads(capsys.readouterr().out)["app"] == "firefox"
+
+
+def test_doctor_needs_no_policy_and_lists_requirements(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["doctor"]) == 0
+    out = capsys.readouterr().out
+    assert "asusctl" in out
+    assert "nvidia-smi" in out
+
+
+def test_commands_that_need_a_policy_say_so(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["tools"]) == 2
+    assert "--policy is required" in capsys.readouterr().err
+
+
+def test_health_exits_non_zero_on_a_sick_machine(
+    policy_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # dry_run swaps in the recording runner, whose zero exit status means every
+    # check passes; this asserts the wiring, not the health of this machine.
+    assert main(_argv(policy_file, tmp_path, "health")) == 0
+    assert "audio" in capsys.readouterr().out
+
+
+def test_memory_round_trips_through_the_cli(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    memory = ["--memory", str(tmp_path / "memory.sqlite3")]
+    assert main([*memory, "memory", "remember", "gpu", "RTX 3050"]) == 0
+    assert main([*memory, "memory", "list"]) == 0
+    assert "gpu: RTX 3050" in capsys.readouterr().out
+    assert main([*memory, "memory", "forget", "gpu"]) == 0
+    assert main([*memory, "memory", "forget", "gpu"]) == 1
+
+
+def test_agent_reports_a_missing_model_instead_of_a_traceback(
+    policy_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = _argv(
+        policy_file,
+        tmp_path,
+        "agent",
+        "do something",
+        "--ollama-url",
+        "http://127.0.0.1:1",  # nothing can be listening on port 1
+    )
+    assert main(argv) == 1
+    assert "model unavailable" in capsys.readouterr().err

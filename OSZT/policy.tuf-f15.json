@@ -1,0 +1,37 @@
+{
+  "_comment": [
+    "Policy for an ASUS TUF Gaming F15 with an RTX 3050.",
+    "set_gpu_mode is deliberately absent: switching graphics mode ends the",
+    "desktop session, so it stays a human action.",
+    "Set dry_run to false only once you have watched a full session in dry run."
+  ],
+  "allowed_capabilities": [
+    "open_app",
+    "close_app",
+    "list_files",
+    "read_text",
+    "set_volume",
+    "set_brightness",
+    "set_power_profile",
+    "get_power_profile",
+    "set_keyboard_backlight",
+    "set_keyboard_colour",
+    "set_charge_limit",
+    "get_gpu_mode",
+    "gpu_status"
+  ],
+  "allowed_apps": {
+    "firefox": ["flatpak", "run", "org.mozilla.firefox"],
+    "discord": ["flatpak", "run", "com.discordapp.Discord"],
+    "steam": ["flatpak", "run", "com.valvesoftware.Steam"],
+    "heroic": ["flatpak", "run", "com.heroicgameslauncher.hgl"],
+    "bottles": ["flatpak", "run", "com.usebottles.bottles"],
+    "soundux": ["soundux"],
+    "rog-control-center": ["rog-control-center"],
+    "files": ["nautilus"],
+    "terminal-readonly": ["gnome-system-monitor"]
+  },
+  "file_roots": ["~/oszt-workspace"],
+  "max_calls_per_minute": 60,
+  "dry_run": true
+}

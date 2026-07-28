@@ -38,15 +38,26 @@ class CapabilitySpec:
     description: str
 
     def schema(self) -> dict[str, Any]:
-        """Describe the capability for the model's tool list."""
+        """Describe the capability as JSON schema, for the model's tool list.
+
+        Derived from the handler signature so the advertised contract can never
+        drift from the code that enforces it.
+        """
         signature = inspect.signature(self.handler)
-        parameters = [
-            name for name in list(signature.parameters)[1:]  # skip ctx
-        ]
+        properties: dict[str, Any] = {}
+        required: list[str] = []
+        for parameter in list(signature.parameters.values())[1:]:  # skip ctx
+            properties[parameter.name] = {"type": _json_type(parameter.annotation)}
+            if parameter.default is inspect.Parameter.empty:
+                required.append(parameter.name)
         return {
             "name": self.name,
             "description": self.description,
-            "parameters": parameters,
+            "parameters": {
+                "type": "object",
+                "properties": properties,
+                "required": required,
+            },
         }
 
 
@@ -121,6 +132,19 @@ class Broker:
                 f"rate limit of {self.policy.max_calls_per_minute} calls per minute reached"
             )
         self._recent.append(now)
+
+
+_JSON_TYPES = {
+    "str": "string",
+    "int": "integer",
+    "float": "number",
+    "bool": "boolean",
+}
+
+
+def _json_type(annotation: Any) -> str:
+    name = getattr(annotation, "__name__", str(annotation))
+    return _JSON_TYPES.get(name, "string")
 
 
 def _outcome_for(error: OSZTError) -> str:

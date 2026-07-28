@@ -1,0 +1,40 @@
+[Unit]
+Description=OSZT Hermes agent (sandboxed, unprivileged)
+Documentation=file:/usr/share/doc/oszt/README.md
+After=graphical-session.target ollama.service
+Wants=ollama.service
+
+[Service]
+Type=simple
+# The agent is the untrusted part. It gets its own user, no privilege
+# escalation, a read-only view of the system, and a single writable workspace.
+User=oszt-agent
+Group=oszt-agent
+ExecStart=/usr/bin/oszt --policy /etc/oszt/policy.json --audit /var/log/oszt/audit.jsonl agent "%i"
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@mount @swap @reboot @module @raw-io
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/oszt /var/log/oszt
+# No NOTIFY_SOCKET here: the agent must not be able to forge the supervisor's
+# heartbeat.
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+[Install]
+WantedBy=default.target

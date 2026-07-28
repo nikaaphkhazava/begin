@@ -43,10 +43,17 @@ def test_tool_list_hides_capabilities_the_policy_forbids(
     assert [tool["name"] for tool in broker.tool_list()] == ["list_files"]
 
 
-def test_tool_list_exposes_parameters_without_the_context(broker: Broker) -> None:
+def test_tool_list_describes_parameters_as_json_schema_without_the_context(
+    broker: Broker,
+) -> None:
     tools = {tool["name"]: tool for tool in broker.tool_list()}
-    assert tools["read_text"]["parameters"] == ["path", "max_bytes"]
-    assert "ctx" not in tools["read_text"]["parameters"]
+    parameters = tools["read_text"]["parameters"]
+    assert parameters["type"] == "object"
+    assert list(parameters["properties"]) == ["path", "max_bytes"]
+    assert parameters["properties"]["path"] == {"type": "string"}
+    assert parameters["properties"]["max_bytes"] == {"type": "integer"}
+    assert parameters["required"] == ["path"]  # max_bytes has a default
+    assert "ctx" not in parameters["properties"]
 
 
 def test_successful_call_is_logged_as_allowed(broker: Broker) -> None:

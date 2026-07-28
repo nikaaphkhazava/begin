@@ -96,3 +96,25 @@ def command_check(run, argv: Sequence[str]) -> Check:
             return False
 
     return check
+
+
+def default_monitor(run) -> HealthMonitor:
+    """The checks that decide whether the machine is still *usable*.
+
+    Not "does it boot" - a wrecked desktop boots fine. These are the things
+    whose absence makes the laptop useless to its owner.
+    """
+    return HealthMonitor(
+        {
+            "display-manager": command_check(run, ("systemctl", "is-active", "gdm")),
+            "audio": command_check(
+                run, ("systemctl", "--user", "is-active", "pipewire")
+            ),
+            "network": command_check(run, ("nmcli", "-t", "-f", "STATE", "general")),
+            "asus-daemon": command_check(run, ("systemctl", "is-active", "asusd")),
+            "gpu": command_check(run, ("nvidia-smi", "-L")),
+            "disk-space": command_check(
+                run, ("findmnt", "--noheadings", "--output", "TARGET", "/")
+            ),
+        }
+    )

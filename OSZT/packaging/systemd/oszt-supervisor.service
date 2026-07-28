@@ -1,0 +1,22 @@
+[Unit]
+Description=OSZT supervisor (health watchdog and rollback trigger)
+Documentation=file:/usr/share/doc/oszt/README.md
+# Deliberately independent of the agent unit: the supervisor must survive the
+# agent, and the agent must not be able to stop the supervisor.
+After=multi-user.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/bin/oszt-supervisor
+WatchdogSec=60
+Restart=always
+RestartSec=5
+# Root, because rollback needs btrfs and rpm-ostree. The agent user has no
+# access to this unit.
+User=root
+ProtectHome=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
