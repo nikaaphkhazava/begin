@@ -26,7 +26,7 @@ from oszt.errors import OSZTError
 from oszt.health import default_monitor
 from oszt.memory import MemoryStore
 from oszt.policy import Policy
-from oszt.preflight import check, report
+from oszt.preflight import check, check_models, report, report_models
 
 DEFAULT_MODEL = "qwen2.5:3b"
 # Small enough to load beside nothing else on a 4GB card.
@@ -50,7 +50,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--memory", type=Path, default=Path("memory.sqlite3"))
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("doctor", help="report which system tools are missing")
+    subparsers.add_parser(
+        "doctor", help="report which system tools and local models are missing"
+    )
     subparsers.add_parser("tools", help="print the capabilities the agent can see")
     subparsers.add_parser("health", help="run the health checks once")
 
@@ -102,6 +104,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "doctor":
         print(report(check()))
+        print("\nmodels")
+        print(report_models(check_models()))
         return 0
 
     if args.command == "memory":

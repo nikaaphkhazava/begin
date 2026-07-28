@@ -3,11 +3,22 @@
 # it installs OSZT for your own user and puts an OSZT icon in your app menu, so
 # from then on you launch it by clicking it.
 #
-#   ./packaging/install-user.sh
+#   ./packaging/install-user.sh                # asks before touching Ollama
+#   ./packaging/install-user.sh --no-ollama    # never mention Ollama at all
+#   ./packaging/install-user.sh --with-ollama  # yes to Ollama and both models
 #
 # For the system parts (the supervisor that rolls the OS back, and the weekly
 # root cleanup) run packaging/install.sh with sudo afterwards.
 set -euo pipefail
+
+ollama_mode=ask
+for argument in "$@"; do
+  case "${argument}" in
+    --no-ollama) ollama_mode=skip ;;
+    --with-ollama) ollama_mode=yes ;;
+    *) echo "unknown option: ${argument}" >&2; exit 2 ;;
+  esac
+done
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 config_dir="${XDG_CONFIG_HOME:-${HOME}/.config}/oszt"
@@ -43,6 +54,52 @@ fi
 
 python3 -m pip install --user --upgrade "${repo_root}"
 
+# The mind is a local model, and without it the agent can hold no opinion: the
+# buttons and capabilities still work, but nothing decides anything. So offer it -
+# but never install it silently, and never twice: an Ollama that is already there,
+# and a model already pulled, are left exactly alone.
+agree() {
+  case "${ollama_mode}" in
+    skip) return 1 ;;
+    yes) return 0 ;;
+  esac
+  if [[ ! -t 0 ]]; then
+    echo "not a terminal, skipping: $1" >&2
+    return 1
+  fi
+  read -r -p "$1 [y/N] " answer
+  [[ ${answer} == [Yy]* ]]
+}
+
+if [[ ${ollama_mode} == skip ]]; then
+  echo "skipping Ollama (--no-ollama); 'oszt doctor' will tell you what is missing"
+elif command -v ollama >/dev/null; then
+  echo "ollama   -> already installed, leaving it alone"
+else
+  echo
+  echo "OSZT needs Ollama to run the AI locally (nothing is sent to a cloud)."
+  if agree "install Ollama now from https://ollama.com/install.sh?"; then
+    curl -fsSL https://ollama.com/install.sh | sh
+  else
+    echo "later: curl -fsSL https://ollama.com/install.sh | sh"
+  fi
+fi
+
+if [[ ${ollama_mode} != skip ]] && command -v ollama >/dev/null; then
+  have_models="$(ollama list 2>/dev/null || true)"
+  for model in "qwen2.5:3b|the mind, ~2GB" "moondream|the eye that reads the screen, ~1.7GB"; do
+    name="${model%%|*}"
+    what="${model#*|}"
+    if grep -q "^${name%%:*}" <<<"${have_models}"; then
+      echo "model    -> ${name} already pulled"
+    elif agree "pull ${name} (${what})?"; then
+      ollama pull "${name}"
+    else
+      echo "later: ollama pull ${name}"
+    fi
+  done
+fi
+
 install -m 0644 "${repo_root}/packaging/oszt-toolbar.desktop" "${apps_dir}/oszt-toolbar.desktop"
 if command -v update-desktop-database >/dev/null; then
   update-desktop-database "${apps_dir}" || true
@@ -70,4 +127,6 @@ what the two buttons do:
 it is in dry run: the buttons and the agent will report exactly what they *would*
 do and change nothing. read ${config_dir}/audit.jsonl, then set
 "dry_run": false in ${config_dir}/policy.json when you are ready.
+
+run 'oszt doctor' any time to see what is still missing, tools and models both.
 EOF

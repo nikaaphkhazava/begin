@@ -77,6 +77,10 @@ ollama pull qwen2.5:3b
 ollama pull moondream        # the eye: ~1.7GB, only loaded when it looks
 ```
 
+You can skip this step: `packaging/install-user.sh` in section 5 offers to do all
+three for you, and `oszt doctor` reports the models separately from the tools, so
+a model that was never pulled is named rather than silently missing.
+
 Sight costs a second model. `moondream` is the smallest useful one; `llava:7b` is
 better and does not fit beside the text model on 4GB. Because both cannot stay
 resident, each look evicts the other model and takes a few seconds - which is why
@@ -92,13 +96,16 @@ speech. Both leave enough VRAM for the model; `small` Whisper models do not.
 
 ```bash
 cd OSZT
-python3 -m pytest             # 285 tests, no hardware needed
+python3 -m pytest             # 293 tests, no hardware needed
 ./packaging/install-user.sh   # your user: the toolbar, in your app menu
 sudo packaging/install.sh     # the system: supervisor and weekly janitor
 oszt doctor
 ```
 
-`install-user.sh` writes `~/.config/oszt/policy.json` and
+`install-user.sh` offers to install Ollama and pull both models if they are not
+there yet — it asks first, says nothing if they are already present, and takes
+`--no-ollama` or `--with-ollama` if you would rather decide up front. It writes
+`~/.config/oszt/policy.json` and
 `~/.config/oszt/buttons.json`, installs the package for your user, and adds OSZT
 to the application menu, so from then on you click an icon rather than typing.
 

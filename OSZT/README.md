@@ -23,6 +23,27 @@ sudo dnf install python3-tkinter        # the toolbar needs it
 ./packaging/install-user.sh             # no root: adds OSZT to your app menu
 ```
 
+The installer asks whether to install **Ollama** and pull the two models the AI
+needs — `qwen2.5:3b` (the mind, ~2GB) and `moondream` (the eye, ~1.7GB). It asks
+rather than assuming: that is a service and a few GB of download. Say no and
+`oszt doctor` will keep telling you the exact `ollama pull` commands. Everything
+is local; nothing is sent to a cloud.
+
+Already have Ollama, or a model? It says so and leaves it alone. To decide up
+front:
+
+```bash
+./packaging/install-user.sh --no-ollama    # never mention it
+./packaging/install-user.sh --with-ollama  # yes to Ollama and both models
+```
+
+Ollama and the models are the only things the installer offers to fetch, because
+they need no root. Everything else (`asusctl`, drivers, `flatpak`, tkinter) is a
+`sudo dnf install` that `oszt doctor` prints and you run.
+
+Without a model the broker, the buttons and every capability still work — only
+the *deciding* is unavailable.
+
 OSZT then appears in the application menu. Launching it gives a small
 always-on-top strip of buttons, each about the size of a mouse cursor:
 
@@ -47,8 +68,8 @@ executes. Every shipped policy ships with it on:
 
 ```bash
 cd OSZT
-python -m pytest                                          # 285 tests, no hardware needed
-python -m oszt doctor                                     # what this machine is missing
+python -m pytest                                          # 293 tests, no hardware needed
+python -m oszt doctor                                     # missing tools AND models
 python -m oszt --policy policy.tuf-f15.json tools         # what the agent would see
 python -m oszt --policy policy.tuf-f15.json call set_power_profile profile=Quiet
 python -m oszt --policy policy.tuf-f15.json call set_gpu_mode mode=Integrated   # refused
@@ -135,7 +156,7 @@ enough for "what is on screen", not enough to watch you type.
 | `oszt/health.py` | Health checks and the batch supervisor. |
 | `oszt/supervisor.py` | The daemon that polls health and triggers rollback. |
 | `oszt/watchdog.py` | `sd_notify` heartbeats to systemd. |
-| `oszt/preflight.py` | `doctor`: which system tools are missing, and the command to install each. |
+| `oszt/preflight.py` | `doctor`: which system tools and local models are missing, and the command for each. |
 | `packaging/` | systemd units and the Fedora installer. |
 
 ## Design rules

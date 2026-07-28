@@ -278,3 +278,13 @@ def test_apps_is_refused_when_the_policy_withholds_installing(
 ) -> None:
     assert main(_argv(policy_file, tmp_path, "apps")) == 1
     assert "refused" in capsys.readouterr().err
+
+
+def test_doctor_reports_the_models_as_well_as_the_tools(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Downloading OSZT and running doctor must say to get Ollama and the models."""
+    assert main(["doctor"]) == 0
+    printed = capsys.readouterr().out
+    assert "models" in printed
+    assert "ollama" in printed
