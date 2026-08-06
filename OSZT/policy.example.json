@@ -5,7 +5,10 @@
     "list_files",
     "read_text",
     "set_volume",
-    "set_brightness"
+    "set_brightness",
+    "sync_preferences_to_cloud",
+    "fetch_preferences_from_cloud",
+    "delete_cloud_history"
   ],
   "allowed_apps": {
     "firefox": ["flatpak", "run", "org.mozilla.firefox"],

@@ -45,7 +45,10 @@
     "set_keyboard_colour",
     "set_charge_limit",
     "get_gpu_mode",
-    "gpu_status"
+    "gpu_status",
+    "sync_preferences_to_cloud",
+    "fetch_preferences_from_cloud",
+    "delete_cloud_history"
   ],
   "allowed_apps": {
     "firefox": ["flatpak", "run", "org.mozilla.firefox"],
