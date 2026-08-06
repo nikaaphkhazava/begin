@@ -12,6 +12,7 @@ from typing import Callable
 from oszt.capabilities import (
     apps,
     asus,
+    cloud_memory,
     files,
     filesystem,
     gpu,
@@ -55,12 +56,16 @@ BUILTIN_CAPABILITIES: dict[str, Callable[..., object]] = {
     "download_file": net.download_file,
     "capture_screen": screen.capture_screen,
     "read_screenshot_base64": screen.read_screenshot_base64,
+    "sync_preferences_to_cloud": cloud_memory.sync_preferences_to_cloud,
+    "fetch_preferences_from_cloud": cloud_memory.fetch_preferences_from_cloud,
+    "delete_cloud_history": cloud_memory.delete_cloud_history,
 }
 
 __all__ = [
     "BUILTIN_CAPABILITIES",
     "apps",
     "asus",
+    "cloud_memory",
     "files",
     "filesystem",
     "gpu",
